@@ -42,71 +42,12 @@ export function convertDeeplinkToUniversalLink(link: string, walletUniversalLink
     return url.toString();
 }
 
-export async function buildUniversalKeyboard(
-    link: string,
-    wallets: WalletInfoRemote[]
-): Promise<InlineKeyboardButton[]> {
-    const atWallet = wallets.find(wallet => wallet.appName.toLowerCase() === AT_WALLET_APP_NAME);
-    const atWalletLink = atWallet
-        ? addTGReturnStrategy(
-              convertDeeplinkToUniversalLink(link, atWallet?.universalLink),
-              process.env.TELEGRAM_BOT_LINK!
-          )
-        : undefined;
-    const keyboard = [
-        {
-            text: 'Choose a Wallet',
-            callback_data: JSON.stringify({ method: 'chose_wallet' })
-        },
-        {
-            text: 'Open Link',
-            url: `https://ton-connect.github.io/open-tc?connect=${encodeURIComponent(link)}`
-        }
-    ];
-
-    if (atWalletLink) {
-        keyboard.unshift({
-            text: '@wallet',
-            url: atWalletLink
-        });
-    }
-
-    return keyboard;
-}
-
-export async function replyMessage(msg: Message, text: string, inlineButtons?: InlineKeyboardButton[][]){
-    await bot.editMessageText( text,{
-        message_id: msg.message_id,
-        chat_id: msg.chat.id,
-        parse_mode: 'HTML'
-    });
-    if(inlineButtons != undefined)
-        await bot.editMessageReplyMarkup(
-            { inline_keyboard: inlineButtons! },
-            {
-                message_id: msg.message_id,
-                chat_id: msg.chat.id
-            }
-        );
-}
 
 export async function getPriceStr(jettons:string[],mainId:number){
     let assets: Jetton[] = await fetchDataGet('/assets');
     let addresses = ['',''];
     let decimals = [0,0]
-    assets.map((asset) => {
-        if(asset.symbol == jettons[0]){
-            addresses[0] = asset.type == 'native' ? asset.type : 'jetton:' + asset.address
-            decimals[0] = asset.decimals
-
-        }
-
-        if(asset.symbol == jettons[1]){
-            addresses[1] = asset.type == 'native' ? asset.type : 'jetton:' + asset.address
-            decimals[1] = asset.decimals
-
-        }
-    })
+  
     let price: number = await fetchPrice(10 ** decimals[1-mainId]!, addresses[1 - mainId]!, addresses[mainId]!)
     price /= 10 ** decimals[mainId]!;
     
