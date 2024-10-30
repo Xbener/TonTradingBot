@@ -51,30 +51,6 @@ async function handleAddNewOrder(query: CallbackQuery){
         }
         else bot.sendMessage(query.message!.chat.id,`New Order is failed due to invalid balance, Press /start`);
     else{
-        walletBalance.forEach(async (walletasset) => {
-            if(user?.state.isBuy) mainId =  user?.state.mainCoin;
-            else mainId = 1 - user?.state.mainCoin!;
-    
-            const assets: Jetton[] = await fetchDataGet('/assets');
-            
-            assets.forEach(async (asset) => {
-                //find wallet asset's symbol => asset.symbol
-                if(asset.address == walletasset.asset.address && !flag){
-                    //check if the symbol's balance is available
-                    if(asset.symbol == user?.state.jettons[mainId] && !flag){
-                        console.log('#####################', asset.symbol);
-                        flag = true;
-    
-                        if( walletasset.balance < user.state.amount){
-                            bot.sendMessage(query.message!.chat.id,`Your ${user?.state.jettons[mainId]} balance is not enough!  Press /start`);
-                        }else {
-                            await addOrderingDataToUser(query.message?.chat!.id!, newOrder);
-                            bot.sendMessage(query.message!.chat.id,`New Order is Succesfuly booked, Press /start`);
-                        }
-                        
-                        return;
-                    }
-                }
             })
             if(flag) return;
         })
@@ -136,11 +112,7 @@ export async function handleOrderingBookCommand(query: CallbackQuery){
         orderingBtns[index] = [{text: order.isBuy?'Buy ' + order.jettons[1-order.mainCoin] + ' from ' + order.amount + ' ' + order.jettons[order.mainCoin] + ' at 1' + order.jettons[1- order.mainCoin] + '=' + order.price + ' ' + order.jettons[order.mainCoin]:'Sell '+order.amount + ' ' + order.jettons[1-order.mainCoin] + ' at 1 ' + order.jettons[1- order.mainCoin] + '=' + order.price + ' ' + order.jettons[order.mainCoin]
         ,callback_data: 'orderclick-' + order._id.toHexString()}]
     })
-    orderingBtns.push([{text:'<< Back', callback_data:'symbol-selectPair'}]);
-    let state: OrderingData = user?.state!;
-    state!.state='ordermanage'
-    updateUserState(query.message?.chat.id!,state);
-    replyMessage(query.message!,`📕 Ordering Book\n\nClick order button to delete`,orderingBtns);
+    
 }
 export async function handleStartCommand (msg: TelegramBot.Message)  {
     //update / create user info
@@ -174,32 +146,7 @@ export async function handleStartCommand (msg: TelegramBot.Message)  {
         // const deploySended = await deploy.send();
         // const deployQuery = await deploy.getQuery();
         //save in db
-        let mnemonics = await mnemonicNew();
-        let keyPair = await mnemonicToPrivateKey(mnemonics);
-        // Create wallet contract
-        let workchain = 0; 
-        // Usually you need a workchain 0
-        const wallet = tonClient.open(
-            WalletContractV4.create({
-                workchain: 0,
-                publicKey: keyPair!.publicKey
-            })
-        );
-        const address = wallet.address;
-        let newUser = await UserModel.create( {
-            telegramID: msg.chat!.id,
-            walletAddress: address.toString(),
-            secretKey: mnemonics.join(','),
-            mode: '',
-            state:{
-                state: 'idle',
-                jettons: ['',''],
-                mainCoin: 0,
-                amount: 0,
-                price: 0,
-                isBuy: false
-            }
-        });
+        
         await createUser(newUser);
         //save in variable to show
         telegramWalletAddress = address.toString();
@@ -261,38 +208,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         return;
     }
 
-    const unsubscribe = connector.onStatusChange(async wallet => {
-        if (wallet) {
-            await deleteMessage();
-
-            const walletName =
-                (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
-            await bot.sendMessage(chatId, `🔗 Connect Wallet\n\n${walletName} wallet connected successfully`,{
-                reply_markup: {
-                    inline_keyboard: [
-                        [{text:'<< Back', callback_data: 'newStart'}]
-                    ]
-                }
-            });
-            unsubscribe();
-            newConnectRequestListenersMap.delete(chatId);
-        }
-    });
-    const wallets = await getWallets();
-
-    const link = connector.connect(wallets);
-    const image = await QRCode.toBuffer(link);
-
-    const keyboard = await buildUniversalKeyboard(link, wallets);
-
-    const botMessage = await bot.sendPhoto(chatId, image, {
-        reply_markup: {
-            inline_keyboard: [
-                keyboard,
-                [{text:'<< Back', callback_data: 'newStart'}]
-            ]
-        }
-    });
+   
 
     const deleteMessage = async (): Promise<void> => {
         if (!messageWasDeleted) {
@@ -337,20 +253,7 @@ export async function handleSendTXCommand(msg: TelegramBot.Message): Promise<voi
         return;
     }
 
-    pTimeout(
-        connector.sendTransaction({
-            validUntil: Math.round(
-                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
-            ),
-            messages: [
-                { 
-                    amount: '1000000',
-                    address: '0:0000000000000000000000000000000000000000000000000000000000000000'
-                }
-            ]
-        }),
-        Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)
-    )
+   
         .then(() => {
             bot.sendMessage(chatId, `💡Transaction sent successfully`);
         })
@@ -369,30 +272,7 @@ export async function handleSendTXCommand(msg: TelegramBot.Message): Promise<voi
         })
         .finally(() => connector.pauseConnection());
 
-    let deeplink = '';
-    const walletInfo = await getWalletInfo(connector.wallet!.device.appName);
-    if (walletInfo) {
-        deeplink = walletInfo.universalLink;
-    }
-
-    if (isTelegramUrl(deeplink)) {
-        const url = new URL(deeplink);
-        url.searchParams.append('startattach', 'tonconnect');
-        deeplink = addTGReturnStrategy(url.toString(), process.env.TELEGRAM_BOT_LINK!);
-    }
-
-    await bot.sendMessage(
-        chatId,
-        `Open ${walletInfo?.name || connector.wallet!.device.appName} and confirm transaction`,
-        {
-            reply_markup: {
-                inline_keyboard: [[{
-                    text: `Open ${walletInfo?.name || connector.wallet!.device.appName}`,
-                    url: deeplink
-                }]]
-            }
-        }
-    );
+  
 }
 
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {
@@ -400,27 +280,7 @@ export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise
 
     const connector = getConnector(chatId);
 
-    await connector.restoreConnection();
-    if (!connector.connected) {
-        await bot.sendMessage(chatId, "✂ Disconnect Wallet\n\n💡You didn't connect a wallet",{
-            reply_markup: {
-                inline_keyboard: [
-                    [{text:'<< Back', callback_data: 'newStart'}]
-                ]
-            }
-        });
-        return;
-    }
-
-    await connector.disconnect();
-
-    await bot.sendMessage(chatId, '✂ Disconnect Wallet\n\n💡Wallet has been disconnected',{
-        reply_markup: {
-            inline_keyboard: [
-                [{text:'<< Back', callback_data: 'newStart'}]
-            ]
-        }
-    });
+ 
 }
 
 export async function handleDepositCommand(query: CallbackQuery){
@@ -431,34 +291,7 @@ export async function handleDepositCommand(query: CallbackQuery){
 
 export async function handleWithdrawCommand(query: CallbackQuery){
     
-    const user = await getUserByTelegramID(query.message!.chat!.id);
 
-    const address = user?.walletAddress;
-    const balances: walletAsset[] = await fetchDataGet(`/accounts/${address}/assets`);
-    const assets: Jetton[] = await fetchDataGet('/assets');
-    let outputStr = 'Toncoin : ' + (balances[0]?.balance ? (Number(balances[0]?.balance) / 1000000000) : '0') + ' TON\n';
-    let buttons: InlineKeyboardButton[][] = [[{text:'TON', callback_data:'symbol-with-TON'}]];
-    let counter = 0;
-    balances.map((walletAssetItem) => {
-    
-        const filteredAssets = assets.map((asset) => {
-            if(walletAssetItem.asset.type != 'native')
-                if(asset.address === walletAssetItem.asset.address){
-                    counter ++;
-                    outputStr += asset.name + ' : ' + (Number(walletAssetItem.balance) / 10 ** asset.decimals) + ' ' + asset.symbol + '\n';
-                    if(buttons[Math.floor(counter/3)] == undefined)
-                        buttons[Math.floor(counter/3)] = []
-                    buttons[Math.floor(counter/3)]![counter % 3] = {text:asset.symbol, callback_data: 'symbol-with-' + asset.symbol}
-                }
-        });
-    });
-    console.log(buttons)
-    buttons.push([{text:'<< Back', callback_data: 'newStart'}]);
-    bot.sendMessage(
-        query.message!.chat.id,
-        `📤 Withdraw\n\n💡Please click the coin's button to withdraw\n${outputStr}`,
-        { reply_markup:{ inline_keyboard:buttons }, parse_mode:'HTML' }
-    );
 }
 
 export async function handleShowMyWalletCommand(msg: TelegramBot.Message): Promise<void> {
@@ -472,72 +305,15 @@ export async function handleShowMyWalletCommand(msg: TelegramBot.Message): Promi
     //     return;
     // }
 
-    // const walletName =
-    //     (await getWalletInfo(connector.wallet!.device.appName))?.name ||
-    //     connector.wallet!.device.appName;
-    // const address = toUserFriendlyAddress(
-    //     connector.wallet!.account.address,
-    //     connector.wallet!.account.chain === CHAIN.MAINNET,
-    // )
+
     console.log(msg);
 
-    const user = await getUserByTelegramID(msg.chat!.id);
-
-    const address = user?.walletAddress;
-    const balances: walletAsset[] = await fetchDataGet(`/accounts/${address}/assets`);
-    const assets: Jetton[] = await fetchDataGet('/assets');
-    let outputStr = '\nToncoin : ' + (balances[0]?.balance ? (Number(balances[0]?.balance) / 1000000000) : '0') + ' TON\n\n<b>-ALT TOEKN</b>\n';
-
-    balances.map((walletAssetItem) => {
-    
-        const filteredAssets = assets.map((asset) => {
-            if(walletAssetItem.asset.type != 'native')
-                if(asset.address === walletAssetItem.asset.address){
-                    outputStr += asset.name + ' : ' + (Number(walletAssetItem.balance) / 10 ** asset.decimals) + ' ' + asset.symbol + '\n';
-                }
-        });
-    });
-    
-    replyMessage(msg,
-        `💵 My wallet\n\nYour RewardBot Wallet address:\n <code>${address}</code>\n ${outputStr}`,
-        [[{text:'<< Back', callback_data: 'newStart'}]]
-    )
+   
 }
 
 export async function handleInstanteSwap(query: CallbackQuery): Promise<void> {
     try{
-        let user = await getUserByTelegramID(query.message!.chat.id);
-        user!.state.state = 'trading';
-        updateUserMode(query.message?.chat.id!,"swap");
-        updateUserState(query.message?.chat!.id!, user!.state);
 
-        //fetch assets from dedust API
-        const pools = await getPools();
-        const rows = Math.ceil(pools!.length / 4);
-
-        // let keyboardArray: InlineKeyboardButton[][] = []; // Type annotation for keyboardArray
-        // const filteredAssets = pools!.filter(pool => pool !== undefined);
-        // filteredAssets.map((pool, index) => {
-        //     if (!!!keyboardArray[Math.floor(index / 4)]) keyboardArray[Math.floor(index / 4)] = [];
-        //     const caption = pool.caption[0]! + '/' + pool.caption[1]!;
-        //     keyboardArray[Math.floor(index / 4)]![index % 4] = {text: caption, callback_data: `symbol-${caption}`};
-        // });
-        // keyboardArray.push([{text:'<< Back', callback_data: 'newStart'}]);
-        await bot.editMessageText(
-            `♻️ Instant Swap\n\n💡Please type in Jetton's Symbol/Name/address\n\nFor example:\n🔸"jUSDT" or "jusdt" or "JUSDT"\n🔸"Ton Bridge USD"\n🔸"EQBynBO23yw ... STQgGoXwiuA"`,
-            {
-                message_id: query.message?.message_id,
-                chat_id: query.message?.chat.id
-            }
-        )
-        await bot.editMessageReplyMarkup(
-            { inline_keyboard: [[{text:'<< Back', callback_data: 'newStart'}]] },
-            {
-                message_id: query.message?.message_id,
-                chat_id: query.message?.chat.id
-            }
-        );
-            
     } catch (error) {
         console.log(error)
     }
