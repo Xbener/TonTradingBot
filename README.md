@@ -44,3 +44,5 @@ To maximize results, try these settings:
 ## 📬 Questions & Collaboration
 
 Interested in taking your trading to the next level? For inquiries or to create a custom trading bot like this, contact me on Telegram: <a href='https://t.me/topsecretagent_007'>topsecretagnt_007.</a>
+
+**I have removed some of the basic content of the current code.**
