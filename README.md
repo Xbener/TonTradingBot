@@ -15,7 +15,7 @@ Welcome to **TonTradingBot** — your gateway to seamless, automated trading on 
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/topsecretagent007/TonTradingBot.git
+   git clone https://github.com/Xbener/TonTradingBot.git
    ```
 
 2. **Navigate to the Project Directory**
@@ -40,9 +40,3 @@ To maximize results, try these settings:
 - **Market Analysis Window:** 1-minute intervals
 - **Stop-Loss and Take-Profit Limits:** Adjust based on market volatility
 - **Trading Hours:** Set non-peak times for optimal performance
-
-## 📬 Questions & Collaboration
-
-Interested in taking your trading to the next level? For inquiries or to create a custom trading bot like this, contact me on Telegram: <a href='https://t.me/topsecretagent_007'>topsecretagnt_007.</a>
-
-**I have removed some of the basic content of the current code.**
